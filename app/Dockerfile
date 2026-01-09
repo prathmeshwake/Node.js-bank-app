@@ -9,7 +9,8 @@ RUN npm install
 # Copy all remaining files, including views
 COPY . .
 
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["node", "server.js"]
+
 

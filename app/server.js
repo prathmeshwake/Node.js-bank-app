@@ -5,56 +5,103 @@ const bodyParser = require("body-parser");
 const path = require("path");
 
 const app = express();
-const PORT = 3000;
 
-// Middleware
+/**
+ * OpenShift REQUIRED
+ */
+const PORT = process.env.PORT || 8080;
+const HOST = "0.0.0.0";
+
+/**
+ * Middleware
+ */
+app.set("trust proxy", 1); // IMPORTANT for OpenShift
+
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({
-  secret: "banksecret",
-  resave: false,
-  saveUninitialized: true,
-}));
+app.use(bodyParser.json());
 
-// Use EJS templates from views folder
+app.use(
+  session({
+    name: "bank-session",
+    secret: process.env.SESSION_SECRET || "banksecret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // set true only if HTTPS end-to-end
+      httpOnly: true,
+    },
+  })
+);
+
+/**
+ * View Engine
+ */
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-// MySQL connection
-const db = mysql.createConnection({
-  host: process.env.DB_HOST || "db",
+/**
+ * MySQL Pool (Recommended for OpenShift)
+ */
+const db = mysql.createPool({
+  host: process.env.DB_HOST || "mysql",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "root123",
   database: process.env.DB_NAME || "testdb",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-// Retry logic for MySQL connection
-function connectWithRetry() {
-  db.connect((err) => {
+/**
+ * Initialize DB with retry
+ */
+function initDB(retries = 10) {
+  db.getConnection((err, connection) => {
     if (err) {
-      console.log("DB connection failed, retrying in 5s...", err.message);
-      setTimeout(connectWithRetry, 5000);
-    } else {
-      console.log("Connected to MySQL");
+      console.error("❌ MySQL connection failed:", err.message);
+      if (retries > 0) {
+        console.log(`🔁 Retrying DB connection (${retries} left)...`);
+        setTimeout(() => initDB(retries - 1), 5000);
+      } else {
+        console.error("❌ Could not connect to MySQL. Exiting.");
+        process.exit(1);
+      }
+      return;
+    }
 
-      // Ensure users table exists
-      db.query(`CREATE TABLE IF NOT EXISTS users (
+    console.log("✅ Connected to MySQL");
+
+    connection.query(
+      `CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL
-      )`);
-    }
+      )`,
+      (err) => {
+        connection.release();
+        if (err) {
+          console.error("❌ Table creation failed:", err.message);
+        } else {
+          console.log("✅ Users table ready");
+        }
+      }
+    );
   });
 }
 
-connectWithRetry();
+initDB();
 
-// Routes
+/**
+ * Routes
+ */
 
-// Redirect root to login
+// Root
 app.get("/", (req, res) => res.redirect("/login"));
 
-// Signup page
-app.get("/signup", (req, res) => res.render("signup", { message: "" }));
+// Signup
+app.get("/signup", (req, res) => {
+  res.render("signup", { message: "" });
+});
 
 app.post("/signup", (req, res) => {
   const { username, password } = req.body;
@@ -63,18 +110,23 @@ app.post("/signup", (req, res) => {
     return res.render("signup", { message: "All fields required" });
   }
 
-  const query = "INSERT INTO users (username, password) VALUES (?, ?)";
-  db.query(query, [username, password], (err, result) => {
+  const sql = "INSERT INTO users (username, password) VALUES (?, ?)";
+
+  db.query(sql, [username, password], (err) => {
     if (err) {
-      console.error(err);
-      return res.render("signup", { message: "User already exists or DB error" });
+      console.error(err.message);
+      return res.render("signup", {
+        message: "User already exists or DB error",
+      });
     }
-    res.redirect("/login"); // Redirect to login after signup
+    res.redirect("/login");
   });
 });
 
-// Login page
-app.get("/login", (req, res) => res.render("login", { message: "" }));
+// Login
+app.get("/login", (req, res) => {
+  res.render("login", { message: "" });
+});
 
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
@@ -83,12 +135,19 @@ app.post("/login", (req, res) => {
     return res.render("login", { message: "All fields required" });
   }
 
-  const query = "SELECT * FROM users WHERE username = ? AND password = ?";
-  db.query(query, [username, password], (err, results) => {
-    if (err) throw err;
+  const sql = "SELECT * FROM users WHERE username = ? AND password = ?";
+
+  db.query(sql, [username, password], (err, results) => {
+    if (err) {
+      console.error(err.message);
+      return res.render("login", { message: "Database error" });
+    }
 
     if (results.length > 0) {
-      req.session.user = results[0];
+      req.session.user = {
+        id: results[0].id,
+        username: results[0].username,
+      };
       res.redirect("/dashboard");
     } else {
       res.render("login", { message: "Invalid credentials" });
@@ -98,16 +157,22 @@ app.post("/login", (req, res) => {
 
 // Dashboard
 app.get("/dashboard", (req, res) => {
-  if (!req.session.user) return res.redirect("/login");
+  if (!req.session.user) {
+    return res.redirect("/login");
+  }
   res.render("dashboard", { user: req.session.user });
 });
 
 // Logout
 app.get("/logout", (req, res) => {
-  req.session.destroy();
-  res.redirect("/login");
+  req.session.destroy(() => {
+    res.redirect("/login");
+  });
 });
 
-// Start server
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-
+/**
+ * Start Server
+ */
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`);
+});
