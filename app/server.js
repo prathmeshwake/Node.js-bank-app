@@ -1,178 +1,122 @@
-const express = require("express");
-const mysql = require("mysql2");
-const session = require("express-session");
-const bodyParser = require("body-parser");
-const path = require("path");
+require('dotenv').config();
+const express = require('express');
+const mysql = require('mysql2');
+const cors = require('cors');
+const bodyParser = require('body-parser');
 
 const app = express();
-
-/**
- * OpenShift REQUIRED
- */
-const PORT = process.env.PORT || 8080;
-const HOST = "0.0.0.0";
-
-/**
- * Middleware
- */
-app.set("trust proxy", 1); // IMPORTANT for OpenShift
-
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cors());
 app.use(bodyParser.json());
 
-app.use(
-  session({
-    name: "bank-session",
-    secret: process.env.SESSION_SECRET || "banksecret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: false, // set true only if HTTPS end-to-end
-      httpOnly: true,
-    },
-  })
-);
-
-/**
- * View Engine
- */
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
-
-/**
- * MySQL Pool (Recommended for OpenShift)
- */
-const db = mysql.createPool({
-  host: process.env.DB_HOST || "mysql",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "root123",
-  database: process.env.DB_NAME || "testdb",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+// MySQL Connection
+const db = mysql.createConnection({
+  host: 'mysql-db',   // docker service name
+  user: 'root',
+  password: 'rootpassword',
+  database: 'contactdb'
 });
 
-/**
- * Initialize DB with retry
- */
-function initDB(retries = 10) {
-  db.getConnection((err, connection) => {
-    if (err) {
-      console.error("❌ MySQL connection failed:", err.message);
-      if (retries > 0) {
-        console.log(`🔁 Retrying DB connection (${retries} left)...`);
-        setTimeout(() => initDB(retries - 1), 5000);
-      } else {
-        console.error("❌ Could not connect to MySQL. Exiting.");
-        process.exit(1);
-      }
-      return;
+db.connect((err) => {
+  if (err) {
+    console.error('Database connection failed:', err);
+    return;
+  }
+  console.log('Connected to MySQL');
+});
+
+
+// =============================
+// CREATE TABLES (IF NOT EXISTS)
+// =============================
+
+// Users Table
+db.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    password VARCHAR(100) NOT NULL
+  )
+`);
+
+
+// User Services Table (WITH username column)
+db.query(`
+  CREATE TABLE IF NOT EXISTS user_services (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    service_type VARCHAR(100) NOT NULL,
+    amount DECIMAL(10,2),
+    recipient VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+
+// =============================
+// REGISTER USER
+// =============================
+app.post('/register', (req, res) => {
+  const { username, password } = req.body;
+
+  db.query(
+    "INSERT INTO users (username, password) VALUES (?, ?)",
+    [username, password],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json({ message: "User registered successfully" });
     }
+  );
+});
 
-    console.log("✅ Connected to MySQL");
 
-    connection.query(
-      `CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL
-      )`,
-      (err) => {
-        connection.release();
-        if (err) {
-          console.error("❌ Table creation failed:", err.message);
-        } else {
-          console.log("✅ Users table ready");
+// =============================
+// ADD SERVICE
+// =============================
+app.post('/add-service', (req, res) => {
+  const { userId, serviceType, amount, recipient } = req.body;
+
+  // Get username using userId
+  db.query(
+    "SELECT username FROM users WHERE id = ?",
+    [userId],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      if (result.length === 0)
+        return res.status(404).json({ message: "User not found" });
+
+      const username = result[0].username;
+
+      // Insert into user_services with username
+      db.query(
+        `INSERT INTO user_services 
+        (user_id, username, service_type, amount, recipient) 
+        VALUES (?, ?, ?, ?, ?)`,
+        [userId, username, serviceType, amount, recipient],
+        (err, result) => {
+          if (err) return res.status(500).json(err);
+          res.json({ message: "Service added successfully" });
         }
-      }
-    );
-  });
-}
-
-initDB();
-
-/**
- * Routes
- */
-
-// Root
-app.get("/", (req, res) => res.redirect("/login"));
-
-// Signup
-app.get("/signup", (req, res) => {
-  res.render("signup", { message: "" });
-});
-
-app.post("/signup", (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.render("signup", { message: "All fields required" });
-  }
-
-  const sql = "INSERT INTO users (username, password) VALUES (?, ?)";
-
-  db.query(sql, [username, password], (err) => {
-    if (err) {
-      console.error(err.message);
-      return res.render("signup", {
-        message: "User already exists or DB error",
-      });
+      );
     }
-    res.redirect("/login");
-  });
+  );
 });
 
-// Login
-app.get("/login", (req, res) => {
-  res.render("login", { message: "" });
-});
 
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.render("login", { message: "All fields required" });
-  }
-
-  const sql = "SELECT * FROM users WHERE username = ? AND password = ?";
-
-  db.query(sql, [username, password], (err, results) => {
-    if (err) {
-      console.error(err.message);
-      return res.render("login", { message: "Database error" });
+// =============================
+// GET ALL SERVICES
+// =============================
+app.get('/services', (req, res) => {
+  db.query(
+    "SELECT * FROM user_services",
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json(result);
     }
-
-    if (results.length > 0) {
-      req.session.user = {
-        id: results[0].id,
-        username: results[0].username,
-      };
-      res.redirect("/dashboard");
-    } else {
-      res.render("login", { message: "Invalid credentials" });
-    }
-  });
+  );
 });
 
-// Dashboard
-app.get("/dashboard", (req, res) => {
-  if (!req.session.user) {
-    return res.redirect("/login");
-  }
-  res.render("dashboard", { user: req.session.user });
-});
 
-// Logout
-app.get("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.redirect("/login");
-  });
-});
-
-/**
- * Start Server
- */
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running on ${HOST}:${PORT}`);
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
 });

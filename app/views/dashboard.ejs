@@ -1,170 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - MyBank</title>
-  <style>
-    * { box-sizing: border-box; margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}
-    body { background-color: #f7f9fc; min-height:100vh;}
-    header { background-color:#6c63ff; color:white; padding:20px 30px; text-align:center;}
-    header h1 { font-size:24px; }
-    main { max-width:1000px; margin:30px auto; padding:0 20px;}
-    h2 { margin-bottom:20px; color:#333; }
+    <meta charset="UTF-8">
+    <title>User Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    .services { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; }
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+        }
 
-    .service-card {
-      background-color:white; padding:25px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);
-      text-align:center; transition: transform 0.2s, box-shadow 0.2s; cursor:pointer; position:relative;
-    }
-    .service-card:hover { transform: translateY(-5px); box-shadow:0 8px 25px rgba(0,0,0,0.15);}
-    .service-card h3 { margin-bottom:10px; color:#6c63ff;}
-    .service-card p { color:#555; }
-    .service-card .result { margin-top:10px; font-weight:bold; color:#333; word-wrap: break-word; }
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            margin: 30px auto;
+        }
 
-    .logout-btn {
-      display:inline-block; margin-top:30px; padding:12px 25px; background-color:#ff5e5e;
-      color:white; border:none; border-radius:8px; font-size:16px; cursor:pointer; text-decoration:none; transition: background-color 0.3s;
-    }
-    .logout-btn:hover { background-color:#e14c4c;}
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
 
-    @media (max-width:600px){
-      header h1{ font-size:20px;}
-      .service-card{ padding:20px;}
-    }
-  </style>
+        /* Form Styling */
+        .form-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #007bff;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: gray;
+        }
+
+        @media (max-width: 768px) {
+            table, thead, tbody, th, td, tr {
+                font-size: 12px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>Welcome, <%= user.username %>!</h1>
-  </header>
 
-  <main>
-    <h2>Bank Services</h2>
-    <div class="services">
-      <div class="service-card" id="check-balance">
-        <h3>Check Balance</h3>
-        <p>View your current account balance instantly.</p>
-        <div class="result"></div>
-      </div>
-      <div class="service-card" id="deposit-money">
-        <h3>Deposit Money</h3>
-        <p>Add funds to your account securely.</p>
-        <div class="result"></div>
-      </div>
-      <div class="service-card" id="withdraw-money">
-        <h3>Withdraw Money</h3>
-        <p>Withdraw cash anytime safely.</p>
-        <div class="result"></div>
-      </div>
-      <div class="service-card" id="transfer-funds">
-        <h3>Transfer Funds</h3>
-        <p>Send money to other accounts quickly.</p>
-        <div class="result"></div>
-      </div>
-      <div class="service-card" id="transaction-history">
-        <h3>Transaction History</h3>
-        <p>View your past transactions.</p>
-        <div class="result"></div>
-      </div>
-      <div class="service-card" id="pay-bills">
-        <h3>Pay Bills</h3>
-        <p>Pay electricity, water, and other bills.</p>
-        <div class="result"></div>
-      </div>
-      <div class="service-card" id="apply-loan">
-        <h3>Apply for Loan</h3>
-        <p>Request a personal or home loan.</p>
-        <div class="result"></div>
-      </div>
+<div class="container">
+
+    <h1>User Services Dashboard</h1>
+
+    <!-- ================= Add Service Form ================= -->
+    <div class="form-card">
+        <h3>Add New Service</h3>
+
+        <form action="/add-service" method="POST">
+            <div class="form-group">
+                <label>User ID</label>
+                <input type="number" name="userId" required>
+            </div>
+
+            <div class="form-group">
+                <label>Service Type</label>
+                <select name="serviceType" required>
+                    <option value="Deposit">Deposit</option>
+                    <option value="Withdraw">Withdraw</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Bill Payment">Bill Payment</option>
+                    <option value="Loan Applied">Loan Applied</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Amount</label>
+                <input type="number" step="0.01" name="amount" required>
+            </div>
+
+            <div class="form-group">
+                <label>Recipient (Optional)</label>
+                <input type="text" name="recipient">
+            </div>
+
+            <button type="submit">Add Service</button>
+        </form>
     </div>
 
-    <a class="logout-btn" href="/logout">Logout</a>
-  </main>
 
-  <script>
-    // Simulated balance and transaction log
-    let balance = 100000; // ₹10,0000
-    const transactions = [];
+    <!-- ================= Services Table ================= -->
+    <% if (services && services.length > 0) { %>
 
-    function addTransaction(type, amount, info='') {
-      const date = new Date().toLocaleString();
-      transactions.push({ date, type, amount, info });
-    }
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Service Type</th>
+                    <th>Amount</th>
+                    <th>Recipient</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% services.forEach(service => { %>
+                    <tr>
+                        <td><%= service.id %></td>
+                        <td><%= service.user_id %></td>
+                        <td><%= service.username %></td>
+                        <td><%= service.service_type %></td>
+                        <td><%= service.amount %></td>
+                        <td><%= service.recipient ? service.recipient : '-' %></td>
+                        <td><%= service.created_at %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
 
-    const formatRupees = (amount) => `₹${amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+    <% } else { %>
 
-    document.getElementById('check-balance').addEventListener('click', function() {
-      this.querySelector('.result').textContent = `Your balance: ${formatRupees(balance)}`;
-    });
+        <div class="no-data">
+            No services available.
+        </div>
 
-    document.getElementById('deposit-money').addEventListener('click', function() {
-      const amount = parseFloat(prompt('Enter amount to deposit (₹):'));
-      if (!isNaN(amount) && amount > 0) {
-        balance += amount;
-        addTransaction('Deposit', amount);
-        this.querySelector('.result').textContent = `Deposited ${formatRupees(amount)}. New balance: ${formatRupees(balance)}`;
-      } else {
-        this.querySelector('.result').textContent = 'Invalid amount.';
-      }
-    });
+    <% } %>
 
-    document.getElementById('withdraw-money').addEventListener('click', function() {
-      const amount = parseFloat(prompt('Enter amount to withdraw (₹):'));
-      if (!isNaN(amount) && amount > 0 && amount <= balance) {
-        balance -= amount;
-        addTransaction('Withdraw', amount);
-        this.querySelector('.result').textContent = `Withdrew ${formatRupees(amount)}. Remaining balance: ${formatRupees(balance)}`;
-      } else {
-        this.querySelector('.result').textContent = 'Invalid or insufficient funds.';
-      }
-    });
+</div>
 
-    document.getElementById('transfer-funds').addEventListener('click', function() {
-      const recipient = prompt('Enter recipient name:');
-      const amount = parseFloat(prompt('Enter amount to transfer (₹):'));
-      if (recipient && !isNaN(amount) && amount > 0 && amount <= balance) {
-        balance -= amount;
-        addTransaction('Transfer', amount, `To: ${recipient}`);
-        this.querySelector('.result').textContent = `Transferred ${formatRupees(amount)} to ${recipient}. Remaining balance: ${formatRupees(balance)}`;
-      } else {
-        this.querySelector('.result').textContent = 'Invalid recipient or insufficient funds.';
-      }
-    });
-
-    document.getElementById('transaction-history').addEventListener('click', function() {
-      if (transactions.length === 0) {
-        this.querySelector('.result').textContent = 'No transactions yet.';
-      } else {
-        this.querySelector('.result').innerHTML = transactions
-          .slice(-5) // last 5 transactions
-          .map(t => `${t.date} - ${t.type} - ${formatRupees(t.amount)} ${t.info}`).join('<br>');
-      }
-    });
-
-    document.getElementById('pay-bills').addEventListener('click', function() {
-      const billType = prompt('Enter bill type (Electricity, Water, etc.):');
-      const amount = parseFloat(prompt(`Enter ${billType} bill amount (₹):`));
-      if (billType && !isNaN(amount) && amount > 0 && amount <= balance) {
-        balance -= amount;
-        addTransaction('Bill Payment', amount, `Bill: ${billType}`);
-        this.querySelector('.result').textContent = `Paid ${billType} bill of ${formatRupees(amount)}. Remaining balance: ${formatRupees(balance)}`;
-      } else {
-        this.querySelector('.result').textContent = 'Invalid bill or insufficient funds.';
-      }
-    });
-
-    document.getElementById('apply-loan').addEventListener('click', function() {
-      const loanAmount = parseFloat(prompt('Enter loan amount (₹):'));
-      if (!isNaN(loanAmount) && loanAmount > 0) {
-        addTransaction('Loan Applied', loanAmount);
-        this.querySelector('.result').textContent = `Loan of ${formatRupees(loanAmount)} requested successfully.`;
-      } else {
-        this.querySelector('.result').textContent = 'Invalid loan amount.';
-      }
-    });
-  </script>
 </body>
 </html>
-
