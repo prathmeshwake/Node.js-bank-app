@@ -9,7 +9,7 @@ app.use(bodyParser.json());
 
 // MySQL Connection
 const db = mysql.createConnection({
-  host: 'mysql-db',   // docker service name
+  host: 'mydb',   // docker service name
   user: 'root',
   password: 'rootpassword',
   database: 'contactdb'
