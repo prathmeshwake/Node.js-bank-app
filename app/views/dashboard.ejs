@@ -1,8 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>User Dashboard</title>
+    <title>User Services Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
@@ -23,7 +22,6 @@
             margin-bottom: 30px;
         }
 
-        /* Form Styling */
         .form-card {
             background: #fff;
             padding: 20px;
@@ -62,7 +60,6 @@
             background: #0056b3;
         }
 
-        /* Table Styling */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -92,7 +89,7 @@
         }
 
         @media (max-width: 768px) {
-            table, thead, tbody, th, td, tr {
+            table {
                 font-size: 12px;
             }
         }
@@ -139,8 +136,8 @@
         </form>
     </div>
 
-
     <!-- ================= Services Table ================= -->
+
     <% if (services && services.length > 0) { %>
 
         <table>
@@ -164,7 +161,9 @@
                         <td><%= service.service_type %></td>
                         <td><%= service.amount %></td>
                         <td><%= service.recipient ? service.recipient : '-' %></td>
-                        <td><%= service.created_at %></td>
+                        <td>
+                            <%= new Date(service.created_at).toLocaleString() %>
+                        </td>
                     </tr>
                 <% }) %>
             </tbody>
